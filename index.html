@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <button id="testbutton" onclick="buttonclick();">Test</button>
+    <div id="display"></div>
+    <table id="table">
+        <tr>
+            <th>
+                Service
+            </th>
+            <th>
+                Indicates
+            </th>
+            <th>
+                Detected?
+            </th>
+            
+        </tr>
+    </table>
+    <script>
+
+        let service_defs = {
+            SpotifyConnect: {
+                Indicates: "Spotify",
+                RequiredPorts: [57621],
+                Time: 500,
+            },
+            /*
+            PresonusHardwareAccel: {
+                Indicates: "PresonusUniversalControl",
+                RequiredPorts: [49672],
+                Time: 4000,
+            },*/
+            RekordboxOauth: {
+                Indicates: "Rekordbox6",
+                RequiredPorts: [55000],
+                Time: 1000,
+            },
+            RekordboxAgent: {
+                Indicates: "Rekordbox6",
+                RequiredPorts: [30001],
+                Time: 1100,
+            },
+            VMWareAuthd: {
+                Indicates: "VMWareWorkstation",
+                RequiredPorts: [912, 902],
+                Time: 1600,
+            }
+        }
+
+        let completed_requests = {
+
+        };
+
+        function do_prod(service_description) {
+            let ports = service_description.RequiredPorts;
+            let service_key = service_description.ServiceKey;
+            let repeat_count = 10;
+            completed_requests[service_key] = {
+                ServiceKey: service_key,
+                MadeRequests: [],
+            }
+            ports.forEach((portno) => 
+            {
+                
+                for (let i = 0; i<repeat_count; i++) {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open("GET", 'http://localhost:'+portno, true);
+                    let timeout = service_description["Time"] || 1000;
+                    xhr.timeout = timeout;
+                    let request = {
+                        StartTime: null,
+                        EndTime: null,
+                        Duration: null,
+                        Port: portno,
+                        Timeout: null,
+                    }
+
+                    completed_requests[service_key].MadeRequests.push(request);
+
+                    xhr.onload = (e) => {
+                        request.EndTime = performance.now();
+                        request.Duration = request.EndTime - request.StartTime;
+                        request.Timeout = false;
+                    }
+                    xhr.ontimeout = (e) => {
+                        request.Timeout = true;
+                    }
+                    xhr.onerror = (e) => {
+                        request.EndTime = performance.now();
+                        request.Duration = request.EndTime - request.StartTime;
+                        request.Timeout = false;
+                    }
+                    request.StartTime= performance.now();
+                    xhr.send(null);
+                }
+            });
+        }
+        function buttonclick() {
+        for (const [key, value] of Object.entries(service_defs)) {
+            sd = value;
+            sd.ServiceKey = key;
+            do_prod(sd);
+        }
+    }
+
+    function checkServicePresent(completed_request) {
+        let def = service_defs[completed_request.ServiceKey];
+        if (completed_request.MadeRequests.some((req) => {return req.Timeout == false})) {
+            return true
+        } else {
+            return false
+        }
+    }
+
+    window.setInterval(() => {
+        console.log(completed_requests);
+        let table = document.getElementById("table");
+        for (const [key, req] of Object.entries(completed_requests)) {
+            let existing_row = table.querySelector(`[data-servicekey="${key}"]`);
+            if (existing_row) {
+                let service = existing_row.getElementsByClassName("datarow-service").item(0);
+                service.innerText = key;
+                let indicates = existing_row.getElementsByClassName("datarow-indicates").item(0);
+                indicates.innerText = service_defs[key].Indicates;
+                let detected = existing_row.getElementsByClassName("datarow-detected").item(0);
+                detected.innerText = checkServicePresent(req);
+            } else {
+                let service = document.createElement("td");
+                service.className = "datarow-service";
+                service.innerText = key;
+
+                let indicates = document.createElement("td");
+                indicates.className = "datarow-indicates";
+
+                let detected = document.createElement("td");
+                detected.className = "datarow-detected";
+
+                let row = document.createElement("tr");
+                row.setAttribute("data-servicekey", key);
+                row.appendChild(service);
+                row.appendChild(indicates);
+                row.appendChild(detected);
+                table.appendChild(row);
+            }
+        };
+    }, 500)
+        
+
+    </script>
+</body>
+</html>
