@@ -4,15 +4,131 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+
     <title>Document</title>
+    <style>
+        body {
+            margin: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #content {
+            max-width: 90%;
+            min-width: 700px;
+            width: 1000px;
+        }
+        th,td {
+            border: 2px solid black;
+            min-width: 250px;
+            padding: 4px;
+            border-right: none;
+            border-top: none;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr td:first-child,th:first-child {
+            border-left: none
+        }
+
+        th {
+            background-color: black;
+            color: white;
+        }
+
+
+        button {
+            background-color: white;
+            color: black;
+            border: 3px solid black;
+            border-radius: 6px;
+            font-weight: bold;
+            padding: 4px 8px;
+            font-size: 16px;
+            margin: 16px 8px;
+            display: block;
+        }
+
+        p {
+            display: block;
+            margin: 16px 0px;
+        }
+
+        button:hover {
+            cursor: pointer
+        }
+
+        button:active {
+            transform: translate(0px, 1px)
+        }
+
+        table {
+            box-sizing: border-box;
+            overflow: hidden;
+            border: 2px solid black;
+            border-radius: 10px;
+        }
+        #table-placeholder {
+            background-color: #ddd;
+            text-align: center;
+            padding: 16px 0px;
+            color: #333;
+            font-weight: bold;
+        }
+        * {
+            font-family: "Spline Sans Mono", monospace;
+        }
+
+        .check-inprogress {
+            color: #333;
+            font-style: italic;
+        }
+
+        .attribution {
+            font-style: italic;
+            font-size: 0.9em
+        }
+    </style>
 </head>
 <body>
-    <button id="testbutton" onclick="buttonclick();">Test</button>
-    <div id="display"></div>
-    <table id="table">
-        <tr>
-            <th>
-                Service
+    <div id="content">
+        <h1>
+            TCP Sidechannel Fingerprinting
+        </h1>
+        <p class="attribution">
+            by <a href="https://patrickbeart.com">Patrick Beart</a>
+        </p>
+        <p>
+            This page makes HTTP requests to a number of local addresses and local network addresses at various
+            ports, exploiting the fact that although the
+            <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Origin">Access-Control-Allow-Origin</a>
+            header can restrict code from another origin from receiving an HTTP
+            <strong>response</strong>, whether the requests complete can still be
+            determined from how long it takes.
+        </p>
+        <p>
+            Since a request completing before timing out only requires that the remote
+            port sent <strong>something</strong> before the timeout (or more precisely,
+            sent something invalid <strong>or</strong> a whole valid response), as long as the remote TCP
+            port responds to invalid data (in this case an HTTP request) with some data
+            (again, more precisely, data that doesn't happen to be some of but not all
+            of a valid HTTP response), listening TCP ports can be detected by measuring how long the request
+            takes to complete.
+        </p>
+        <button id="testbutton" onclick="buttonclick();">Run Tests</button>
+        <div id="display"></div>
+        <table cellspacing="0" id="table">
+            <tr>
+                <th>
+                    Service
             </th>
             <th>
                 Indicates
@@ -20,12 +136,27 @@
             <th>
                 Detected?
             </th>
-            
+            <tr>
+                <td colspan="3" id="table-placeholder">
+                    No tests have been run yet
+                </td>
+            </tr>
         </tr>
     </table>
+    </div>
     <script>
-
+        
         let service_defs = {
+            DiscordRPCWS: {
+                Indicates: "Discord",
+                RequiredPorts: [6463],
+                Time: 500
+            },
+            MinecraftRCON: {
+                Indicates: "MinecraftServer",
+                RequiredPorts: [25565],
+                Time: 500
+            },
             SpotifyConnect: {
                 Indicates: "Spotify",
                 RequiredPorts: [57621],
@@ -36,12 +167,12 @@
                 RequiredPorts: [49670, 49671],
                 Time: 10000
             },
-            /*
+            
             PresonusHardwareAccel: {
                 Indicates: "PresonusUniversalControl",
-                RequiredPorts: [49672],
+                RequiredPorts: [49669],
                 Time: 4000,
-            },*/
+            },
             RekordboxOauth: {
                 Indicates: "Rekordbox6",
                 RequiredPorts: [55000],
@@ -57,6 +188,31 @@
                 RequiredPorts: [912, 902],
                 Time: 1600,
             },
+            Port80: {
+                Indicates: "LocalWebServer",
+                RequiredPorts: [80],
+                Time: 500,
+            },
+            NowTVSelfHeal: {
+                Indicates: "NowTVRouter",
+                URL: "http://192.168.0.12/Now_TV_self_heal-checking.html",
+                Time: 200,
+            },
+            Router: {
+                Indicates: "NetworkResidential",
+                RequiredPorts: [80],
+                Host: "192.168.0.1",
+            },
+            Router2: {
+                Indicates: "NetworkResidential",
+                RequiredPorts: [80],
+                Host: "192.168.1.1",
+            },
+            Router3: {
+                Indicates: "NetworkResidential",
+                RequiredPorts: [80],
+                Host: "192.168.0.2",
+            }
 
         }
 
@@ -66,6 +222,9 @@
 
         function do_prod(service_description) {
             let ports = service_description.RequiredPorts;
+            if (typeof ports == "undefined") {
+                ports = [-1];
+            };
             let service_key = service_description.ServiceKey;
             let repeat_count = 10;
             completed_requests[service_key] = {
@@ -77,7 +236,16 @@
                 
                 for (let i = 0; i<repeat_count; i++) {
                     const xhr = new XMLHttpRequest();
-                    xhr.open("GET", 'http://localhost:'+portno, true);
+                    let host = "localhost";
+                    if (typeof service_description.Host != "undefined") {
+                        host = service_description.Host;
+                    };
+                    let url = `http://${host}:${portno}`;
+                    if (typeof service_description.URL != "undefined") {
+                        url = service_description.URL;
+                    };
+                    xhr.open("GET", url, true);
+                    console.log(url);
                     let timeout = Object.is(service_description["Time"], null) ? 1000 : service_description["Time"] * 1.5;
                     console.log(timeout);
                     xhr.timeout = timeout;
@@ -122,23 +290,34 @@
     }
 
     function checkServicePresent(completed_request) {
+        
         let def = service_defs[completed_request.ServiceKey];
         let incomplete = (completed_request.MadeRequests.some((req) => {return req.Complete == false}));
         if (incomplete) {
-            return "incomplete"
+            return '<span class="check-inprogress">Checking...</span>';
         } else {
             if (completed_request.MadeRequests.some((req) => {return req.Timeout == false})) {
-                return true
+                return "✅ Yes"
             } else {
-                return false
+                return "❌ No"
             }
         }
     }
 
     window.setInterval(() => {
-        console.log(completed_requests);
+        
         let table = document.getElementById("table");
-        for (const [key, req] of Object.entries(completed_requests)) {
+
+        let placeholder_display;
+        if (Object.entries(completed_requests).length == 0) {
+            placeholder_display = "default";
+        } else {
+            placeholder_display = "none";
+        }
+
+        document.getElementById("table-placeholder").style.display = placeholder_display;
+        for (const [key, req] of Object.entries(completed_requests)) { /*completed_requests)) {*/
+completed_requests
             let existing_row = table.querySelector(`[data-servicekey="${key}"]`);
             if (existing_row) {
                 let service = existing_row.getElementsByClassName("datarow-service").item(0);
@@ -146,7 +325,7 @@
                 let indicates = existing_row.getElementsByClassName("datarow-indicates").item(0);
                 indicates.innerText = service_defs[key].Indicates;
                 let detected = existing_row.getElementsByClassName("datarow-detected").item(0);
-                detected.innerText = checkServicePresent(req);
+                detected.innerHTML = checkServicePresent(req);
             } else {
                 let service = document.createElement("td");
                 service.className = "datarow-service";
@@ -157,7 +336,7 @@
                 indicates.innerText = service_defs[key].Indicates;
                 let detected = document.createElement("td");
                 detected.className = "datarow-detected";
-                detected.innerText = checkServicePresent(req);
+                detected.innerHTML = checkServicePresent(req);
                 let row = document.createElement("tr");
                 row.setAttribute("data-servicekey", key);
                 row.appendChild(service);
