@@ -131,6 +131,13 @@
         </p>
             <button id="testbutton" onclick="buttonclick();">Run Tests</button>
         <div id="display"></div>
+        <p><strong>
+
+            
+            If 'LocalHostBlocked' is indicated, that means that localhost is not accessible, and therefore any positive detection outcomes are false positives.
+        
+        </strong>
+        </p>
         <table cellspacing="0" id="table">
             <tr>
                 <th>
@@ -305,10 +312,10 @@
         let def = service_defs[completed_request.ServiceKey];
         let incomplete = (completed_request.MadeRequests.some((req) => {return req.Complete == false}));
         if (incomplete) {
-            return '<span class="check-inprogress">Checking...</span>';
+            return '<span class="check-inprogress">checking...</span>';
         } else {
             if (completed_request.MadeRequests.some((req) => {return req.Timeout == false})) {
-                return "✅ Yes"
+                return "✅ <strong>Yes</strong>"
             } else {
                 return "❌ No"
             }
