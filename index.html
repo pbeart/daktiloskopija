@@ -114,15 +114,22 @@
             determined from how long it takes.
         </p>
         <p>
-            Since a request completing before timing out only requires that the remote
+            Since a request completing before timing out only requires that the request ended
+            before the timeout, either because the remote
             port sent <strong>something</strong> before the timeout (or more precisely,
-            sent something invalid <strong>or</strong> a whole valid response), as long as the remote TCP
+            sent something invalid <strong>or</strong> a whole valid response), or the request
+            immediately failed (e.g.)
+            
+        </p>
+        <p>
+            
+            As long as the remote TCP
             port responds to invalid data (in this case an HTTP request) with some data
             (again, more precisely, data that doesn't happen to be some of but not all
             of a valid HTTP response), listening TCP ports can be detected by measuring how long the request
             takes to complete.
         </p>
-        <button id="testbutton" onclick="buttonclick();">Run Tests</button>
+            <button id="testbutton" onclick="buttonclick();">Run Tests</button>
         <div id="display"></div>
         <table cellspacing="0" id="table">
             <tr>
@@ -146,6 +153,11 @@
     <script>
         
         let service_defs = {
+            ReservedPort: {
+                Indicates: "LocalHostBlocked",
+                RequiredPorts: [1024],
+                Time: 500
+            },
             DiscordRPCWS: {
                 Indicates: "Discord",
                 RequiredPorts: [6463],
